@@ -135,7 +135,7 @@ function SnacksBlock() {
 
 export function Step5Meals() {
   const { activeMeals } = useMealStore()
-  const meals = [...new Set([...activeMeals, 'Dinner'])]
+  const meals = Array.from(new Set([...activeMeals, 'Dinner']))
 
   return (
     <div className="px-5 pt-[22px] pb-[10px]">
