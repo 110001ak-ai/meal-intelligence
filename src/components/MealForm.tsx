@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { useMealStore } from '@/store/mealStore'
 import { TopNav } from '@/components/TopNav'
 import { Step1Region } from '@/components/steps/Step1Region'
@@ -11,22 +12,17 @@ import { submitToSheets } from '@/lib/submitToSheets'
 
 const STEPS = [Step1Region, Step2Diet, Step3Fats, Step4Count, Step5Meals]
 
+// ── Saving overlay ────────────────────────────────────────────
 function SavingOverlay() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Blurred backdrop */}
       <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" />
-
-      {/* Dialog card */}
       <div className="relative bg-card rounded-[16px] px-10 py-10 flex flex-col items-center gap-5 shadow-2xl mx-6 w-full max-w-[300px]">
-
-        {/* Spinner ring */}
+        {/* Spinner */}
         <div className="relative w-14 h-14">
           <div className="absolute inset-0 rounded-full border-[3px] border-bd" />
           <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-accent animate-spin" />
         </div>
-
-        {/* Text */}
         <div className="text-center">
           <p className="text-[15px] font-semibold text-ink leading-tight mb-[6px]">
             Saving your profile
@@ -40,6 +36,57 @@ function SavingOverlay() {
   )
 }
 
+// ── Error overlay ─────────────────────────────────────────────
+function ErrorOverlay({
+  onRetry,
+  onDismiss,
+}: {
+  onRetry: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" />
+      <div className="relative bg-card rounded-[16px] px-8 py-8 flex flex-col items-center gap-5 shadow-2xl mx-6 w-full max-w-[320px]">
+
+        {/* Error icon */}
+        <div className="w-14 h-14 rounded-full bg-red-50 border-[1.5px] border-red-200 flex items-center justify-center">
+          <span className="text-[26px]">⚠️</span>
+        </div>
+
+        {/* Text */}
+        <div className="text-center">
+          <p className="text-[15px] font-semibold text-ink leading-tight mb-[8px]">
+            Something went wrong
+          </p>
+          <p className="text-[12.5px] text-ink3 font-normal leading-[1.6]">
+            We couldn&apos;t save your profile. Check your internet connection and try again.
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="w-full flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={onRetry}
+            className="w-full h-[46px] rounded-r bg-accent text-white text-[13.5px] font-semibold cursor-pointer active:opacity-90 transition-all"
+          >
+            Try again
+          </button>
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="w-full h-[46px] rounded-r border-[1.5px] border-bd bg-transparent text-ink2 text-[13.5px] font-medium cursor-pointer hover:bg-bd2 transition-all"
+          >
+            Go back and edit
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main form ─────────────────────────────────────────────────
 export function MealForm() {
   const {
     step,
@@ -53,29 +100,44 @@ export function MealForm() {
     setSubmitted,
   } = useMealStore()
 
+  const [showError, setShowError] = useState(false)
+
   if (submitted) return <SuccessScreen />
 
   const StepComponent = STEPS[step - 1]
   const isLast = step === totalSteps
   const ok = canProceed()
 
+  async function attemptSubmit() {
+    setSubmitting(true)
+    setShowError(false)
+    try {
+      await submitToSheets(buildPayload())
+      setSubmitted(true)
+    } catch {
+      setShowError(true)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function handleNext() {
     if (!ok || submitting) return
     if (!isLast) { goNext(); return }
-    setSubmitting(true)
-    try {
-      await submitToSheets(buildPayload())
-    } finally {
-      setSubmitting(false)
-      setSubmitted(true)
-    }
+    await attemptSubmit()
   }
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
 
-      {/* Saving overlay — shown while submitting */}
+      {/* Overlays */}
       {submitting && <SavingOverlay />}
+      {showError && (
+        <ErrorOverlay
+          onRetry={attemptSubmit}
+          onDismiss={() => setShowError(false)}
+        />
+      )}
 
       <div className="max-w-[430px] w-full mx-auto flex flex-col flex-1">
         <TopNav />
